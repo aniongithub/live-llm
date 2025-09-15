@@ -1,0 +1,28 @@
+{
+	"name": "Live LLM",
+    "dockerFile": "../Dockerfile",
+    "build": {
+        "target": "develop"
+    },
+	"runArgs": ["--env-file", ".env"],
+    "context": "..",
+	"remoteUser": "vscode",
+	"features": {
+		"ghcr.io/nils-geistmann/devcontainers-features/create-remote-user:0": {
+			"passwordLessSudo": true
+		}
+	},
+	"customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash"
+			},
+			"extensions": [
+				"ms-python.python",
+				"zaaack.markdown-editor",
+				"ms-python.debugpy"
+			]
+        }
+    },
+	"postAttachCommand": ".devcontainer/postAttachCommand.sh"
+}

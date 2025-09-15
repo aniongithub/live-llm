@@ -1,0 +1,59 @@
+{
+    "version": "0.2.0",
+    "compounds": [
+        {
+            "name": "Live LLM (all)",
+            "configurations": [
+                "Live LLM Server",
+                "Input Client",
+                "Output Client"
+            ]
+        }
+    ],
+    "configurations": [
+        {
+            "name": "Live LLM Server",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "server:app",
+                "--host", "0.0.0.0",
+                "--port", "8000",
+                "--reload",
+                "--log-level", "info"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
+            "name": "Input Client",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/input_client.py",
+            "args": [
+                "--host", "localhost",
+                "--port", "8000",
+                "--max-retries", "10"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
+            "name": "Output Client",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/output_client.py",
+            "args": [
+                "--host", "localhost",
+                "--port", "8000",
+                "--max-retries", "10"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        }
+    ]
+}
