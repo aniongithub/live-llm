@@ -10,7 +10,8 @@
 	"features": {
 		"ghcr.io/nils-geistmann/devcontainers-features/create-remote-user:0": {
 			"passwordLessSudo": true
-		}
+		},
+		"ghcr.io/devcontainers/features/node:1": {},
 	},
 	"customizations": {
         "vscode": {
@@ -20,9 +21,12 @@
 			"extensions": [
 				"ms-python.python",
 				"zaaack.markdown-editor",
-				"ms-python.debugpy"
+				"ms-python.debugpy",
+				"tomoyukim.vscode-mermaid-editor",
+				"MermaidChart.vscode-mermaid-chart"
 			]
         }
     },
+	"postCreateCommand": ". ${NVM_DIR}/nvm.sh && nvm install --lts",
 	"postAttachCommand": ".devcontainer/postAttachCommand.sh"
 }
