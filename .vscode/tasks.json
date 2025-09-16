@@ -1,0 +1,53 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "waitForClient",
+            "type": "shell",
+            "command": "while ! nc -z localhost 3030; do sleep 1; done",
+            "group": "none",
+            "problemMatcher": {
+                "base": "$tsc",
+                "background": {
+                    "beginsPattern": ".*",
+                    "endsPattern": ".*"
+                }
+            }
+        },
+        {
+            "label": "clientPrelaunch",
+            "type": "shell",
+            "command": "echo 'Preparing Chrome debugger...'",
+            "dependsOn": [
+                "waitForClient"
+            ],
+            "problemMatcher": []
+        },
+		{
+			"type": "npm",
+			"script": "build",
+            "path": "client",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+			"label": "build-npm",
+			"detail": "Run webpack",            
+		},
+		{
+			"type": "npm",
+			"script": "watch",
+			"path": "client",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+			"label": "watch-npm",
+			"detail": "Run webpack in watch mode"
+		}
+    ]
+}

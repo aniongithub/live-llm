@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live LLM Client</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🤖 Live LLM Client</h1>
+            <div class="status-bar">
+                <div class="status-indicator" id="status">
+                    <span class="status-dot" id="statusDot"></span>
+                    <span id="statusText">Disconnected</span>
+                </div>
+                <button class="reset-btn" id="resetBtn" title="Reset conversation">
+                    🔄 Reset
+                </button>
+            </div>
+        </header>
+
+        <main class="main">
+            <div class="chat-container">
+                <div class="messages" id="messages">
+                    <div class="welcome-message">
+                        <p>Welcome to Live LLM! Start a conversation by typing a message below.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-container">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="messageInput" 
+                        placeholder="Type your message here... (Press Ctrl+Enter to send)"
+                        rows="2"
+                        maxlength="2000"
+                    ></textarea>
+                    <button class="send-btn" id="sendBtn" title="Send message (Ctrl+Enter)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22,2 15,22 11,13 2,9"></polygon>
+                        </svg>
+                    </button>
+                </div>
+                <div class="input-footer">
+                    <span class="char-count" id="charCount">0/2000</span>
+                    <span class="hint">Ctrl+Enter to send</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="index.js"></script>
+</body>
+</html>

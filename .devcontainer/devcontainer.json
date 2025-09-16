@@ -1,0 +1,44 @@
+{
+	"name": "Live LLM",
+    "dockerFile": "../Dockerfile",
+    "build": {
+        "target": "develop"
+    },
+	"runArgs": ["--env-file", ".env"],
+    "context": "..",
+	"remoteUser": "vscode",
+	"features": {
+		"ghcr.io/nils-geistmann/devcontainers-features/create-remote-user:0": {
+			"passwordLessSudo": true
+		},
+		"ghcr.io/devcontainers/features/node:1": {}
+	},
+	"customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash"
+			},
+			"extensions": [
+				"ms-python.python",
+				"zaaack.markdown-editor",
+				"ms-python.debugpy",
+				"idered.npm",
+				"msjsdiag.debugger-for-chrome"
+			]
+        }
+    },
+	"postCreateCommand": ". ${NVM_DIR}/nvm.sh && nvm install --lts",
+	"postAttachCommand": ".devcontainer/postAttachCommand.sh",
+
+	"forwardPorts": [3030, 8000],
+	"portsAttributes": {
+		"3000": {
+			"label": "Chat client",
+			"onAutoForward": "ignore"
+		},
+		"8000": {
+			"label": "Live LLM server",
+			"onAutoForward": "ignore"
+		}
+	}
+}

@@ -1,0 +1,55 @@
+{
+    "version": "0.2.0",
+    "compounds": [
+        {
+            "name": "Live LLM (web)",
+            "configurations": [
+                "Live LLM Server",
+                "Client (Server)",
+                "Client (Chrome)"
+            ]
+        }
+    ],
+    "configurations": [
+        {
+            "name": "Live LLM Server",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "server:app",
+                "--host", "0.0.0.0",
+                "--port", "8000",
+                "--reload",
+                "--log-level", "info"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false
+        },
+        {
+            "name": "Client (Server)",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "http-server",
+            "runtimeArgs": ["-p", "3030", "./dist"],
+            "preLaunchTask": "build-npm",
+            "cwd": "${workspaceFolder}/client"
+        },
+        {
+            "name": "Client (Chrome)",
+            "type": "chrome",
+            "request": "launch",
+            "browserLaunchLocation": "ui",
+            "runtimeExecutable": "stable",
+            "url": "http://localhost:3030",
+            "webRoot": "${workspaceFolder}/client",
+            "preLaunchTask": "clientPrelaunch",
+            "userDataDir": "${workspaceFolder}/.vscode/cache",
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceFolder}/client/dist/**/*.js"
+            ]
+        }        
+    ]
+}
