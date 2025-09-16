@@ -11,51 +11,46 @@ from live_llm import GemmaLiveLLM
 
 
 class ConnectionManager:
-    """Manages WebSocket connections."""
+    """Manages a single WebSocket connection."""
     
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
-        self.output_connections: List[WebSocket] = []
+        self.connection: WebSocket | None = None
     
-    async def connect_input(self, websocket: WebSocket):
-        """Connect an input client."""
+    async def connect(self, websocket: WebSocket):
+        """Connect the client. Replace existing connection if present."""
+        # Close existing connection if present
+        if self.connection is not None:
+            try:
+                await self.connection.close(code=1000, reason="Replaced by new connection")
+            except:
+                pass  # Connection might already be closed
+            print("Replacing existing connection")
+            
         await websocket.accept()
-        self.active_connections.append(websocket)
-        print(f"Input client connected. Total: {len(self.active_connections)}")
+        self.connection = websocket
+        print("Client connected")
+        return True
     
-    async def connect_output(self, websocket: WebSocket):
-        """Connect an output client."""
-        await websocket.accept()
-        self.output_connections.append(websocket)
-        print(f"Output client connected. Total: {len(self.output_connections)}")
+    def disconnect(self, websocket: WebSocket):
+        """Disconnect the client."""
+        if websocket == self.connection:
+            self.connection = None
+            print("Client disconnected")
     
-    def disconnect_input(self, websocket: WebSocket):
-        """Disconnect an input client."""
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-            print(f"Input client disconnected. Total: {len(self.active_connections)}")
-    
-    def disconnect_output(self, websocket: WebSocket):
-        """Disconnect an output client."""
-        if websocket in self.output_connections:
-            self.output_connections.remove(websocket)
-            print(f"Output client disconnected. Total: {len(self.output_connections)}")
-    
-    async def broadcast_to_outputs(self, message: dict):
-        """Send message to all output clients."""
-        if not self.output_connections:
+    async def send_message(self, message: dict):
+        """Send message to the client."""
+        if self.connection is None:
             return
             
-        disconnected = []
-        for connection in self.output_connections:
-            try:
-                await connection.send_text(json.dumps(message))
-            except:
-                disconnected.append(connection)
-        
-        # Clean up disconnected clients
-        for conn in disconnected:
-            self.disconnect_output(conn)
+        try:
+            await self.connection.send_text(json.dumps(message))
+        except:
+            # Connection is broken, clean it up
+            self.connection = None
+    
+    def is_connected(self) -> bool:
+        """Check if a client is connected."""
+        return self.connection is not None
 
 
 class LiveLLMServer:
@@ -83,20 +78,28 @@ class LiveLLMServer:
         print("✓ Model initialized and ready!")
     
     async def _output_stream_handler(self):
-        """Handle streaming output from the LLM and broadcast to clients."""
+        """Handle streaming output from the LLM and send to the client."""
         if not self.llm:
             return
             
         output_stream = self.llm.get_output_stream()
         
         async for token in output_stream:
-            # Broadcast token to all output clients
-            await self.manager.broadcast_to_outputs({
-                "type": "token",
-                "data": token
-            })
+            # Check for end-of-response signal
+            if token == "[END_OF_RESPONSE]":
+                # Send end signal to client
+                await self.manager.send_message({
+                    "type": "end",
+                    "data": ""
+                })
+            else:
+                # Send token to client
+                await self.manager.send_message({
+                    "type": "token",
+                    "data": token
+                })
             
-            # Small delay to prevent overwhelming clients
+            # Small delay to prevent overwhelming client
             await asyncio.sleep(0.01)
     
     async def process_input(self, message: str):
@@ -106,8 +109,8 @@ class LiveLLMServer:
         
         print(f"Processing input: {message}")
         
-        # Broadcast the user input to output clients
-        await self.manager.broadcast_to_outputs({
+        # Send the user input to client (for logging/debugging)
+        await self.manager.send_message({
             "type": "user_input",
             "data": message
         })
@@ -119,7 +122,7 @@ class LiveLLMServer:
         """Reset the LLM KV cache."""
         if self.llm:
             await self.llm.reset()
-            await self.manager.broadcast_to_outputs({
+            await self.manager.send_message({
                 "type": "system",
                 "data": "✓ KV cache reset"
             })
@@ -158,19 +161,20 @@ async def status():
     """Get server status."""
     return {
         "initialized": server.is_initialized,
-        "input_clients": len(server.manager.active_connections),
-        "output_clients": len(server.manager.output_connections)
+        "client_connected": server.manager.is_connected()
     }
 
 
-@app.websocket("/ws/input")
-async def websocket_input_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for input clients."""
-    await server.manager.connect_input(websocket)
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    """Single WebSocket endpoint for bidirectional communication."""
+    connected = await server.manager.connect(websocket)
+    if not connected:
+        return
     
     try:
         while True:
-            # Receive message from input client
+            # Receive message from client
             data = await websocket.receive_text()
             message_data = json.loads(data)
             
@@ -180,18 +184,4 @@ async def websocket_input_endpoint(websocket: WebSocket):
                 await server.reset_cache()
             
     except WebSocketDisconnect:
-        server.manager.disconnect_input(websocket)
-
-
-@app.websocket("/ws/output")
-async def websocket_output_endpoint(websocket: WebSocket):
-    """WebSocket endpoint for output clients."""
-    await server.manager.connect_output(websocket)
-    
-    try:
-        # Keep connection alive
-        while True:
-            await asyncio.sleep(1)
-            
-    except WebSocketDisconnect:
-        server.manager.disconnect_output(websocket)
+        server.manager.disconnect(websocket)

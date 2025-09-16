@@ -11,7 +11,7 @@
 		"ghcr.io/nils-geistmann/devcontainers-features/create-remote-user:0": {
 			"passwordLessSudo": true
 		},
-		"ghcr.io/devcontainers/features/node:1": {},
+		"ghcr.io/devcontainers/features/node:1": {}
 	},
 	"customizations": {
         "vscode": {
@@ -28,5 +28,17 @@
         }
     },
 	"postCreateCommand": ". ${NVM_DIR}/nvm.sh && nvm install --lts",
-	"postAttachCommand": ".devcontainer/postAttachCommand.sh"
+	"postAttachCommand": ".devcontainer/postAttachCommand.sh",
+
+	"forwardPorts": [3030, 8000],
+	"portsAttributes": {
+		"3000": {
+			"label": "Chat client",
+			"onAutoForward": "notify"
+		},
+		"8000": {
+			"label": "Live LLM server",
+			"onAutoForward": "notify"
+		}
+	}
 }

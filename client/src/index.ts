@@ -13,20 +13,16 @@ interface Message {
 }
 
 interface ServerMessage {
-    type: 'token' | 'user_input' | 'system';
+    type: 'token' | 'user_input' | 'system' | 'end';
     data: string;
 }
 
 class LiveLLMClient {
-    private inputSocket: WebSocket | null = null;
-    private outputSocket: WebSocket | null = null;
+    private socket: WebSocket | null = null;
     private isConnected = false;
-    private isConnecting = false;
     private messages: Message[] = [];
     private currentAIMessage = '';
-    private maxRetries = 10;
-    private retryCount = 0;
-    private retryTimeout: number | null = null;
+    private isStreamingAI = false;
 
     // DOM elements
     private messagesContainer!: HTMLElement;
@@ -59,9 +55,12 @@ class LiveLLMClient {
 
         // Enter key handling
         this.messageInput.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.key === 'Enter') {
+            if (e.key === 'Enter' && !e.ctrlKey) {
                 e.preventDefault();
                 this.sendMessage();
+            } else if (e.key === 'Enter' && e.ctrlKey) {
+                // Allow default behavior (carriage return)
+                // Don't prevent default, let the textarea handle it
             }
         });
 
@@ -88,92 +87,39 @@ class LiveLLMClient {
         this.messageInput.style.height = Math.min(this.messageInput.scrollHeight, 120) + 'px';
     }
 
-    private async connect(): Promise<void> {
-        if (this.isConnecting || this.isConnected) return;
+    private connect(): void {
+        if (this.isConnected) return;
 
-        this.isConnecting = true;
-        this.updateStatus('connecting', 'Connecting...');
-        this.retryCount++;
-
-        try {
-            const host = window.location.hostname;
-            const port = process.env.SERVER_PORT || '8000';
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            
-            // Connect to both input and output endpoints
-            const inputPromise = this.connectSocket(`${protocol}//${host}:${port}/ws/input`, 'input');
-            const outputPromise = this.connectSocket(`${protocol}//${host}:${port}/ws/output`, 'output');
-
-            await Promise.all([inputPromise, outputPromise]);
-
+        const host = window.location.hostname;
+        const port = process.env.SERVER_PORT || '8000';
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        
+        this.socket = new WebSocket(`${protocol}//${host}:${port}/ws`);
+        
+        this.socket.onopen = () => {
             this.isConnected = true;
-            this.isConnecting = false;
-            this.retryCount = 0;
             this.updateStatus('connected', 'Connected');
             this.updateUI();
-
             console.log('✓ Connected to Live LLM server');
+        };
 
-        } catch (error) {
-            this.isConnecting = false;
-            console.error('Connection failed:', error);
-            
-            if (this.retryCount < this.maxRetries) {
-                const delay = Math.min(Math.pow(2, this.retryCount) * 1000, 10000);
-                this.updateStatus('connecting', `Retrying in ${Math.ceil(delay / 1000)}s...`);
-                
-                this.retryTimeout = window.setTimeout(() => {
-                    this.connect();
-                }, delay);
-            } else {
-                this.updateStatus('disconnected', 'Connection failed');
-                this.addSystemMessage('Failed to connect to server. Please check if the server is running.');
-            }
-        }
+        this.socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        this.socket.onclose = () => {
+            this.socket = null;
+            this.isConnected = false;
+            this.updateStatus('disconnected', 'Disconnected');
+            this.updateUI();
+        };
+
+        this.socket.onmessage = (event) => {
+            this.handleMessage(event.data);
+        };
     }
 
-    private connectSocket(url: string, type: 'input' | 'output'): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const socket = new WebSocket(url);
-
-            socket.onopen = () => {
-                if (type === 'input') {
-                    this.inputSocket = socket;
-                } else {
-                    this.outputSocket = socket;
-                }
-                resolve();
-            };
-
-            socket.onerror = (error) => {
-                reject(error);
-            };
-
-            socket.onclose = () => {
-                if (type === 'input') {
-                    this.inputSocket = null;
-                } else {
-                    this.outputSocket = null;
-                }
-                
-                if (this.isConnected) {
-                    this.isConnected = false;
-                    this.updateStatus('disconnected', 'Disconnected');
-                    this.updateUI();
-                    this.addSystemMessage('Connection lost. Attempting to reconnect...');
-                    setTimeout(() => this.connect(), 2000);
-                }
-            };
-
-            if (type === 'output') {
-                socket.onmessage = (event) => {
-                    this.handleOutputMessage(event.data);
-                };
-            }
-        });
-    }
-
-    private handleOutputMessage(data: string): void {
+    private handleMessage(data: string): void {
         try {
             const message: ServerMessage = JSON.parse(data);
             
@@ -186,6 +132,10 @@ class LiveLLMClient {
                     this.handleAIToken(message.data);
                     break;
                     
+                case 'end':
+                    this.handleStreamEnd();
+                    break;
+                    
                 case 'system':
                     this.addSystemMessage(message.data);
                     break;
@@ -196,19 +146,49 @@ class LiveLLMClient {
     }
 
     private handleAIToken(token: string): void {
-        if (this.currentAIMessage === '') {
-            // Start of new AI response
-            this.startAIMessage();
-        }
+        console.log('Received token:', JSON.stringify(token), 'isStreamingAI:', this.isStreamingAI);
         
-        this.currentAIMessage += token;
-        this.updateCurrentAIMessage();
+        if (!this.isStreamingAI) {
+            console.log('Starting new AI message');
+            // Start of new AI response
+            this.isStreamingAI = true;
+            this.currentAIMessage = token; // Initialize with first token
+            this.startAIMessage();
+            // Disable input while AI is responding
+            this.updateUI();
+        } else {
+            this.currentAIMessage += token;
+            this.updateCurrentAIMessage();
+        }
+    }
+
+    private handleStreamEnd(): void {
+        console.log('Stream ended, isStreamingAI:', this.isStreamingAI);
+        if (this.isStreamingAI) {
+            // Remove typing indicator from current AI message
+            const messageElements = this.messagesContainer.querySelectorAll('.message');
+            const lastMessageElement = messageElements[messageElements.length - 1];
+            if (lastMessageElement && lastMessageElement.classList.contains('ai-message')) {
+                const typingIndicator = lastMessageElement.querySelector('.typing-indicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+            }
+            
+            // Reset streaming state
+            this.isStreamingAI = false;
+            this.currentAIMessage = '';
+            
+            // Re-enable input
+            this.updateUI();
+        }
     }
 
     private startAIMessage(): void {
+        console.log('Creating new AI message with content:', JSON.stringify(this.currentAIMessage));
         const message: Message = {
             type: 'ai',
-            content: '',
+            content: this.currentAIMessage, // Use current content instead of empty string
             timestamp: new Date()
         };
         
@@ -237,20 +217,17 @@ class LiveLLMClient {
 
     private sendMessage(): void {
         const content = this.messageInput.value.trim();
-        if (!content || !this.isConnected || !this.inputSocket) return;
+        if (!content || !this.isConnected || !this.socket || this.isStreamingAI) return;
 
         // Add user message to display
         this.addUserMessage(content);
 
         // Send to server
         try {
-            this.inputSocket.send(JSON.stringify({
+            this.socket.send(JSON.stringify({
                 type: 'message',
                 data: content
             }));
-
-            // Reset current AI message for next response
-            this.currentAIMessage = '';
 
             // Clear input
             this.messageInput.value = '';
@@ -264,16 +241,18 @@ class LiveLLMClient {
     }
 
     private resetConversation(): void {
-        if (!this.isConnected || !this.inputSocket) return;
+        if (!this.isConnected || !this.socket) return;
 
         try {
-            this.inputSocket.send(JSON.stringify({
+            this.socket.send(JSON.stringify({
                 type: 'reset'
             }));
 
-            // Clear local messages
+            // Clear local messages and reset state
             this.messages = [];
             this.currentAIMessage = '';
+            this.isStreamingAI = false;
+            this.updateUI();
             this.renderMessages();
 
         } catch (error) {
@@ -372,42 +351,40 @@ class LiveLLMClient {
     }
 
     private updateUI(): void {
-        const isEnabled = this.isConnected;
+        const isEnabled = this.isConnected && !this.isStreamingAI;
         
         this.messageInput.disabled = !isEnabled;
         this.sendBtn.disabled = !isEnabled;
         this.resetBtn.disabled = !isEnabled;
 
         if (isEnabled) {
-            this.messageInput.placeholder = 'Type your message here... (Press Ctrl+Enter to send)';
+            this.messageInput.placeholder = 'Type your message here... (Press Enter to send, Ctrl+Enter for new line)';
             this.messageInput.focus();
+        } else if (this.isStreamingAI) {
+            this.messageInput.placeholder = 'AI is responding...';
         } else {
             this.messageInput.placeholder = 'Connecting to server...';
         }
     }
 
     private disconnect(): void {
-        if (this.retryTimeout) {
-            clearTimeout(this.retryTimeout);
-            this.retryTimeout = null;
+        if (this.socket) {
+            this.socket.close();
+            this.socket = null;
         }
-
-        if (this.inputSocket) {
-            this.inputSocket.close();
-            this.inputSocket = null;
-        }
-
-        if (this.outputSocket) {
-            this.outputSocket.close();
-            this.outputSocket = null;
-        }
-
         this.isConnected = false;
-        this.isConnecting = false;
     }
 }
 
 // Initialize the client when the DOM is loaded
+let clientInstance: LiveLLMClient | null = null;
+
 document.addEventListener('DOMContentLoaded', () => {
-    new LiveLLMClient();
+    if (clientInstance) {
+        console.log('Client instance already exists, skipping initialization');
+        return;
+    }
+    
+    console.log('Creating LiveLLMClient instance');
+    clientInstance = new LiveLLMClient();
 });

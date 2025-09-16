@@ -24,10 +24,10 @@ fi
 echo "📦 Installing Python requirements..."
 pip install -r requirements.txt
 
+# Install client requirements
+echo "📦 Installing client requirements..."
+npm install --prefix client
+
 echo "✅ Setup complete! You can now run the Live LLM models."
 echo ""
-echo "To test the setup, run:"
-echo "  python test_simple.py"
-echo ""
-echo "To start the interactive client, run:"
-echo "  python client.py"
+echo "To test the setup, run the launch configuration \"Live LLM (web)\""
