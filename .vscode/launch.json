@@ -2,7 +2,15 @@
     "version": "0.2.0",
     "compounds": [
         {
-            "name": "Live LLM (all)",
+            "name": "Live LLM (web)",
+            "configurations": [
+                "Live LLM Server",
+                "Client (Server)",
+                "Client (Chrome)"
+            ]
+        },
+        {
+            "name": "Live LLM (CLI)",
             "configurations": [
                 "Live LLM Server",
                 "Input Client",
@@ -54,6 +62,31 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": false
-        }
+        },
+        {
+            "name": "Client (Server)",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "npx",
+            "preLaunchTask": "build-npm",
+            "runtimeArgs": ["serve", "-s", "dist", "-l", "3030"],
+            "cwd": "${workspaceFolder}/client",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Client (Chrome)",
+            "type": "chrome",
+            "request": "launch",
+            "browserLaunchLocation": "ui",
+            "runtimeExecutable": "stable",
+            "url": "http://localhost:3030",
+            "webRoot": "${workspaceFolder}/client",
+            "preLaunchTask": "clientPrelaunch",
+            "userDataDir": "${workspaceFolder}/.vscode/cache",
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceFolder}/client/dist/**/*.js"
+            ]
+        }        
     ]
 }

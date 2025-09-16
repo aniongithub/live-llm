@@ -22,8 +22,8 @@
 				"ms-python.python",
 				"zaaack.markdown-editor",
 				"ms-python.debugpy",
-				"tomoyukim.vscode-mermaid-editor",
-				"MermaidChart.vscode-mermaid-chart"
+				"idered.npm",
+				"msjsdiag.debugger-for-chrome"
 			]
         }
     },
