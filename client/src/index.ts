@@ -105,6 +105,11 @@ class LiveLLMClient {
 
         this.socket.onerror = (error) => {
             console.error('WebSocket error:', error);
+            // If we can't connect on load, just reload the page
+            if (!this.isConnected) {
+                console.log('Failed to connect, reloading page...');
+                setTimeout(() => window.location.reload(), 2000);
+            }
         };
 
         this.socket.onclose = () => {

@@ -34,11 +34,11 @@
 	"portsAttributes": {
 		"3000": {
 			"label": "Chat client",
-			"onAutoForward": "notify"
+			"onAutoForward": "ignore"
 		},
 		"8000": {
 			"label": "Live LLM server",
-			"onAutoForward": "notify"
+			"onAutoForward": "ignore"
 		}
 	}
 }

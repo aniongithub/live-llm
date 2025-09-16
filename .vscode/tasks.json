@@ -25,15 +25,29 @@
             ],
             "problemMatcher": []
         },
-        {
-            "label": "build-npm",
-            "type": "shell",
-            "command": "cd client && npm install && npm run build",
-        },
-        {
-            "label": "dev-npm",
-            "type": "shell",
-            "command": "cd client && npm install && npm run dev",
-        }
+		{
+			"type": "npm",
+			"script": "build",
+            "path": "client",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+			"label": "build-npm",
+			"detail": "Run webpack",            
+		},
+		{
+			"type": "npm",
+			"script": "watch",
+			"path": "client",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [],
+			"label": "watch-npm",
+			"detail": "Run webpack in watch mode"
+		}
     ]
 }

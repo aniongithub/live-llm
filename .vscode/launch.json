@@ -8,14 +8,6 @@
                 "Client (Server)",
                 "Client (Chrome)"
             ]
-        },
-        {
-            "name": "Live LLM (CLI)",
-            "configurations": [
-                "Live LLM Server",
-                "Input Client",
-                "Output Client"
-            ]
         }
     ],
     "configurations": [
@@ -36,42 +28,13 @@
             "justMyCode": false
         },
         {
-            "name": "Input Client",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/input_client.py",
-            "args": [
-                "--host", "localhost",
-                "--port", "8000",
-                "--max-retries", "10"
-            ],
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "justMyCode": false
-        },
-        {
-            "name": "Output Client",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/output_client.py",
-            "args": [
-                "--host", "localhost",
-                "--port", "8000",
-                "--max-retries", "10"
-            ],
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}",
-            "justMyCode": false
-        },
-        {
             "name": "Client (Server)",
             "type": "node",
             "request": "launch",
-            "runtimeExecutable": "npx",
+            "runtimeExecutable": "http-server",
+            "runtimeArgs": ["-p", "3030", "./dist"],
             "preLaunchTask": "build-npm",
-            "runtimeArgs": ["serve", "-s", "dist", "-l", "3030"],
-            "cwd": "${workspaceFolder}/client",
-            "console": "integratedTerminal"
+            "cwd": "${workspaceFolder}/client"
         },
         {
             "name": "Client (Chrome)",
