@@ -5,6 +5,10 @@ Instead of re-sending the entire prompt and conversation history at every step, 
 
 This allows the LLM to respond faster and more interactively, at the expense of eventually forgetting the oldest parts of a conversation. Think of it as a **rolling window of conversational memory** that trades completeness for latency.
 
+![Live LLM Demo](img/live-llm-demo.gif)
+
+This is an actual demo of Gemma 270m running on CPU, with instantaneous, stateful responses since the KV cache is prepopulated with prompt and context.
+
 ---
 
 ## Use Cases
