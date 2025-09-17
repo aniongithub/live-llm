@@ -53,7 +53,7 @@ With a persistent **key-value cache**, each new message only needs to process th
 
 ## Disadvantages / Trade-offs
 
--  **Single-Tenant**: Designed for *one conversation at a time* (multi-tenant orchestration would need a scheduler)  
+-  **Single-Tenant**: Designed for *one conversation at a time* (this is why we use small models that can scale with each ongoing conversation)
 -  **Forgets Old Context**: Since the cache is finite, earlier conversation turns are eventually dropped  
 -  **Cache Invalidation Bugs**: Care must be taken to avoid mismatched inputs vs. cached states  
 -  **Less Accurate Long-Form Reasoning**: Without full history, answers to very long threads may drift  
@@ -86,6 +86,22 @@ If you’ve ever wanted to see how **incremental LLM state** can be managed outs
 
 ## Environment Setup
 
+### 🤗 Huggingface token
+
+You will need a 🤗 Hugging Face token that allows read access to gemma:270m before proceeding.
+
+* Log into [huggingface](https://huggingface.co) with your account
+* Access [gemma:270m](https://huggingface.co/google/gemma-3-270m) and accept any agreements
+* Click on your profile | Access Tokens | Create new token
+* Create a fine-grained access token with "Read access to contents of all public gated repos you can access" or any other permission you choose
+* Copy the generated token and save it as a `.env` file with the following contents
+
+```bash
+HUGGINGFACE_TOKEN=hf_mytokenhere
+```
+
+You are now ready to use VS Code to develop with this repo.
+
 ### Dev Container (Recommended)
 
 We use **VS Code Dev Containers** to ensure a consistent, isolated development environment.  
@@ -98,12 +114,24 @@ We use **VS Code Dev Containers** to ensure a consistent, isolated development e
 
 2. **Open in Dev Container**
    - Open this project folder in VS Code  
-   - Press `F1` (or `Ctrl+Shift+P`) and run **Dev Containers: Reopen in Container**  
+   - Press `F1` (or `Ctrl/Cmd+Shift+P`) and run **Dev Containers: Reopen in Container**  
    - VS Code will detect the `.devcontainer/` config, build the container, and reopen inside it  
 
 3. **Rebuild if Needed**
-   - If you make changes to `.devcontainer/devcontainer.json` or Docker setup, press `F1` → **Dev Containers: Rebuild Container**
+   - If you make changes to `.devcontainer/devcontainer.json` or Docker setup, press `Ctrl/Cmd+Shift+P` → **Dev Containers: Rebuild Container**
 
-4. **Alternative entry**
-   - From the sidebar, open **Remote Explorer**, right-click the container, and select **Rebuild and Reopen in Container**
+### Debugging and running
+
+Use the VS Code Ruyn and Debug panel to launch the compound configuration `Live LLM (web)`. This will launch:
+
+1. **The Live-LLM server** - This may take some time to start the first time as it may need to download the models we use. When ready, you will see 
+
+`INFO:     Application startup complete.`
+
+2. **The web client** - This will launch in a new browser window. Once the server is running, you can refresh this window to connect to the server.
+
+At this point you can 
+* Create breakpoints
+* Modify the server (it will auto-reload)
+* Build the client (Ctrl/Cmd+Shift+B) and refresh it (Shift+F5) to reload changes, etc.
 

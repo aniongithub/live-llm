@@ -35,7 +35,7 @@
 			},
 			"problemMatcher": [],
 			"label": "build-npm",
-			"detail": "Run webpack",            
+			"detail": "Run webpack",
 		},
 		{
 			"type": "npm",
@@ -43,7 +43,7 @@
 			"path": "client",
 			"group": {
 				"kind": "build",
-				"isDefault": true
+				"isDefault": false
 			},
 			"problemMatcher": [],
 			"label": "watch-npm",
