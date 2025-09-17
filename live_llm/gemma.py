@@ -8,7 +8,7 @@ Gemma Live LLM Implementation for CPU inference with hot KV cache (DynamicCache)
 - Streams token-by-token with a persistent KV across invocations
 """
 import asyncio
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator, Dict, Optional, Tuple
 
 import torch
 from transformers import (
@@ -30,19 +30,24 @@ class GemmaLiveLLM(LiveLLMBase):
         self.tokenizer: Optional[AutoTokenizer] = None
         self.generation_config: Optional[GenerationConfig] = None
 
-        # State: conversation + KV cache
         self._conversation_history = []
-        self._past_key_values: Optional[DynamicCache] = None
 
-        # System instructions that should always be seeded in the first cache
-        self._system_prompt = {
+        self._system_prompt_template = {
             "role": "system",
             "content": (
-                "You are a helpful AI assistant. "
-                "Answer questions directly and completely. "
-                "Be creative, engaging, and informative in your responses."
             ),
         }
+
+        # State: conversation + KV cache
+        self._states: Dict[str, Tuple[str, DynamicCache]] = {
+            "default": (
+                "You are a helpful AI assistant. "
+                "Answer questions directly and completely. "
+                "Be creative, engaging, and informative in your responses.",
+                DynamicCache(),
+            )
+        }
+        self._current_state: str = "default"
 
     async def initialize_model(self) -> None:
         """Load and prepare the Gemma model for CPU inference."""
@@ -81,9 +86,7 @@ class GemmaLiveLLM(LiveLLMBase):
             use_cache=True,
         )
 
-        # Start with empty dynamic cache
-        self._past_key_values = DynamicCache()
-        print("Gemma model loaded with DynamicCache + eager attention for streaming inference")
+        print("Gemma model loaded with Hot KV cache and eager attention for streaming inference")
 
     async def _process_tokens(self, input_text: str) -> AsyncGenerator[str, None]:
         """
@@ -99,14 +102,18 @@ class GemmaLiveLLM(LiveLLMBase):
             self._conversation_history.append({"role": "user", "content": input_text})
 
             # --- Encode input ---
-            first_turn = (self._past_key_values is None) or (len(self._past_key_values) == 0)
+            state, past_key_values = self._states.get(self._current_state, self._states["default"])
+            first_turn = (past_key_values is None) or (len(past_key_values) == 0)
+
+            system_prompt = self._system_prompt_template.copy()
+            system_prompt["content"] = state
 
             if first_turn:
                 # For Gemma, we need to format the system prompt differently
                 # since it might not support system role in chat template
                 if hasattr(self.tokenizer, "apply_chat_template"):
                     # Include system prompt as part of the first user message for Gemma
-                    user_content = f"{self._system_prompt['content']}\n\n{self._conversation_history[0]['content']}"
+                    user_content = f"{system_prompt['content']}\n\n{self._conversation_history[0]['content']}"
                     messages = [{"role": "user", "content": user_content}]
                     
                     input_ids = self.tokenizer.apply_chat_template(
@@ -131,7 +138,7 @@ class GemmaLiveLLM(LiveLLMBase):
                     input_ids = self.tokenizer(full_text, return_tensors="pt")["input_ids"]
 
                 input_ids = input_ids.to(self.model.device)
-                self._past_key_values = DynamicCache()
+                past_key_values = DynamicCache()
             else:
                 # Later turns: only encode new user input + assistant prefix
                 # We need to be careful NOT to include <bos> or recreate the full conversation
@@ -177,14 +184,14 @@ class GemmaLiveLLM(LiveLLMBase):
                 with torch.no_grad():
                     outputs = self.model(
                         input_ids=input_ids,
-                        past_key_values=self._past_key_values,
+                        past_key_values=past_key_values,
                         use_cache=True,
                         cache_implementation="dynamic",
                         attn_implementation="eager",
                     )
 
                 # Update cache
-                self._past_key_values = outputs.past_key_values
+                past_key_values = outputs.past_key_values
 
                 # Sample next token
                 logits = outputs.logits[:, -1, :]
@@ -241,8 +248,11 @@ class GemmaLiveLLM(LiveLLMBase):
             # Trim if too long
             if len(self._conversation_history) > 20:
                 self._conversation_history = self._conversation_history[-16:]
-                self._past_key_values = DynamicCache()
+                past_key_values = DynamicCache()
                 print("Conversation history trimmed, cache reset")
+
+            # Update state cache
+            self._states[self._current_state] = (state, past_key_values)
 
         except Exception as e:
             print(f"Error in _process_tokens: {e}")
@@ -254,5 +264,41 @@ class GemmaLiveLLM(LiveLLMBase):
     async def reset(self) -> None:
         """Clear conversation history and reset cache (but keep system prompt)."""
         self._conversation_history = []
-        self._past_key_values = DynamicCache()
+        self._states[self._current_state] = (self._states[self._current_state][0], DynamicCache())
         print("Conversation history and cache reset (system prompt will be re-seeded on next turn)")
+
+    @property
+    def state(self) -> str:
+        """Get the current system prompt state."""
+        state_tuple = self._states.get(self._current_state)
+        if state_tuple is not None:
+            return state_tuple[0]
+        return ""
+    
+    @state.setter
+    def state(self, prompt: str) -> None:
+        """Set or update the current system prompt state."""
+        if self._current_state in self._states:
+            _, existing_cache = self._states[self._current_state]
+            self._states[self._current_state] = (prompt, existing_cache)
+            print(f"Updated current state '{self._current_state}' with new prompt.")
+        else:
+            self._states[self._current_state] = (prompt, DynamicCache())
+            print(f"Created new state '{self._current_state}' with provided prompt.")
+
+    @property
+    def states(self) -> Dict[str, str]:
+        """Get all available state names and their prompts."""
+        return {name: tup[0] for name, tup in self._states.items()}
+
+    @property
+    def current_state(self) -> str:
+        """Get the name of the current state."""
+        return self._current_state
+    @current_state.setter
+    def current_state(self, state_name: str) -> None:
+        """Switch to a different state, creating it if it doesn't exist."""
+        if state_name not in self._states:
+            raise ValueError(f"State '{state_name}' does not exist.")
+        self._current_state = state_name
+        print(f"Switched to state '{state_name}'.")
